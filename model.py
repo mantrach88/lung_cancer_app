@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, roc_curve, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
 
 #For ignoring warnings
 import warnings
@@ -146,7 +148,7 @@ df["Gender"].unique()
 # 
 # Conversion :
 # - Gender - Female = 0, Male = 1
-# - Lung cancer - NO = 0, YES = 1
+# - Lung cancer - No = 0, Yes = 1
 
 # %%
 #Mapping numeric values to non-numeric values
@@ -211,25 +213,10 @@ plot('Genetic Risk')
 plot('chronic Lung Disease')
 
 # %%
-plot('Balanced Diet')
-
-# %%
-plot('Obesity')
-
-# %%
 plot('Smoking')
 
 # %%
-plot('Passive Smoker')
-
-# %%
 plot('Chest Pain')
-
-# %%
-plot('Coughing Blood')
-
-# %%
-plot('Fatigue')
 
 # %%
 plot('Weight Loss')
@@ -246,15 +233,6 @@ plot('Swallowing Difficulty')
 # %%
 plot('Clubbing of Finger Nails')
 
-# %%
-plot('Frequent Cold')
-
-# %%
-plot('Dry Cough')
-
-# %%
-plot('Snoring')
-
 # %% [markdown]
 # #4. Model Building 
 
@@ -264,16 +242,18 @@ X = df.drop('Lung cancer', axis = 1)
 y = df['Lung cancer']
 
 # %%
-#Standardizing the dataset
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
-
-
 X_bias = np.hstack((X, np.ones((X.shape[0], 1))))
 
 X_train, X_val, y_train, y_val = train_test_split(
-    X_bias, y, test_size=0.2, random_state=42, stratify=y
+    X_bias, y, test_size=0.25, random_state=42, stratify=y
 )
+
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train[:, :-1])
+X_val_scaled = scaler.transform(X_val[:, :-1]) 
+X_train = np.hstack((X_train_scaled, X_train[:, -1].reshape(-1, 1)))
+X_val = np.hstack((X_val_scaled, X_val[:, -1].reshape(-1, 1)))
 
 # %% [markdown]
 # #Sigmoid Function
@@ -288,25 +268,29 @@ sns.kdeplot(y_val,cumulative=True, bw=1.5)
 # #Log Loss Function
 
 # %%
-def compute_loss(w, X, y):
+def compute_loss(w, X, y, lambda_reg=0.01):
     z = X @ w
     # applying the sigmoid function to get predicted probabilities
     predictions = sigmoid(z)
     # binary cross-entropy loss
     loss = -np.mean(y * np.log(predictions) + (1 - y) * np.log(1 - predictions))
+    loss += (lambda_reg / (2 * len(y))) * np.sum(w[:-1]**2)
     return loss
 
 # %% [markdown]
 # #Gradient of the Loss Function
 
 # %%
-def compute_gradient(w, X, y):
+def compute_gradient(w, X, y, lambda_reg=0.01):
     z = X @ w
     predictions = sigmoid(z)
     # error = difference between predicted and true labels
     errors = predictions - y
     # compute the gradient of the loss function
     gradient = X.T @ errors / len(y)
+    reg_gradient = (lambda_reg / len(y)) * w
+    reg_gradient[-1] = 0
+    gradient += reg_gradient
     return gradient
 
 # %% [markdown]
@@ -324,16 +308,16 @@ def validation_accuracy(w, X_val, y_val):
 
 # %%
 def gradient_descent_logistic(X_train, y_train, X_val, y_val,
-                              learning_rate=0.1, n_steps=1000, tolerance=1e-6):
+                              learning_rate=0.1, n_steps=1000, tolerance=1e-6, lambda_reg=0.01):
     w = np.zeros(X_train.shape[1])  # start with all weights equal to 0
     loss_history = [compute_loss(w, X_train, y_train)]
     val_accuracy_history = [validation_accuracy(w, X_val, y_val)]
     weights_history = [w.copy()]  # storing weights for decision boundary plotting
 
     for step in range(1, n_steps + 1):
-        grad = compute_gradient(w, X_train, y_train)
+        grad = compute_gradient(w, X_train, y_train, lambda_reg)
         w -= learning_rate * grad  # update rule
-        loss = compute_loss(w, X_train, y_train)
+        loss = compute_loss(w, X_train, y_train, lambda_reg)
         loss_history.append(loss)
 
         # compute validation accuracy
@@ -360,13 +344,58 @@ def gradient_descent_logistic(X_train, y_train, X_val, y_val,
 # %%
 learning_rate = 0.05
 n_steps = 800
+lambda_reg = 10
 
 w_opt, loss_history, val_accuracy_history, weights_history = gradient_descent_logistic(
     X_train, y_train, X_val, y_val,
     learning_rate=learning_rate,
     n_steps=n_steps,
+    lambda_reg = lambda_reg
 )
 
+# %% [markdown]
+# #6. Model Evaluation 
+
+# %%
+def evaluate_model(w, X_val, y_val):
+    probabilities = sigmoid(X_val @ w)
+    y_pred = (probabilities > 0.5).astype(int)
+
+    precision = precision_score(y_val, y_pred)
+    recall = recall_score(y_val, y_pred)
+    f1 = f1_score(y_val, y_pred)
+    accuracy = np.mean(y_pred == y_val)
+
+    cm = confusion_matrix(y_val, y_pred)
+
+    fpr, tpr, thresholds = roc_curve(y_val, probabilities)
+    auc = roc_auc_score(y_val, probabilities)
+
+    print(f"Accuracy: {accuracy:.3f}")
+    print(f"Precision: {precision:.3f}")
+    print(f"Recall (Sensitivity): {recall:.3f}")
+    print(f"F1 Score: {f1:.3f}")
+    print(f"AUC (Area Under ROC Curve): {auc:.3f}")
+
+    plt.figure(figsize=(5,4))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title('Confusion Matrix')
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.show()
+
+    plt.figure(figsize=(6,5))
+    plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {auc:.3f})')
+    plt.plot([0,1], [0,1], linestyle='--', color='gray')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate (Recall)')
+    plt.title('ROC Curve')
+    plt.legend()
+    plt.show()
+
+
+# %%
+evaluate_model(w_opt, X_val, y_val)
 
 # %% [markdown]
 # #6. CONCLUSION
