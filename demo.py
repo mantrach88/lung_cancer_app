@@ -23,9 +23,9 @@ air_pollution = st.select_slider(
 alcohol_use = st.slider("Alcohol Use", 1, 8, 4)
 dust_allergy = st.slider("Dust Allergy", 1, 8, 4)
 occupational_hazards = st.slider("Occupational Hazards", 1, 8, 4)
-genetic_risk = st.slider("Genetic Risk", 1, 8, 4)
+genetic_risk = st.slider("Genetic Risk", 1, 4, 5)
 chronic_lung_disease = st.slider("Chronic Lung Disease", 1, 8, 4)
-balanced_diet = st.slider("Balanced Diet", 1, 8, 4)
+unbalanced_diet = st.slider("Unbalanced Diet", 1, 8, 4)
 smoking = st.slider("Smoking", 1, 8, 4)
 chest_pain = st.slider("Chest Pain", 1, 8, 4)
 coughing_blood = st.slider("Coughing Blood", 1, 8, 4)
@@ -39,7 +39,7 @@ frequent_cold = st.slider("Frequent Cold", 1, 8, 4)
 dry_cough = st.slider("Dry Cough", 1, 8, 4)
 snoring = st.slider("Snoring", 1, 8, 4)
 user_input = [age, gender, air_pollution, alcohol_use, dust_allergy, occupational_hazards, genetic_risk, 
-              chronic_lung_disease, balanced_diet, smoking, chest_pain, weight_loss, shortness_of_breath, 
+              chronic_lung_disease, unbalanced_diet, smoking, chest_pain, weight_loss, shortness_of_breath, 
               wheezing, swallowing_difficulty, clubbing
               ]
 

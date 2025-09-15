@@ -39,9 +39,9 @@ warnings.filterwarnings("ignore")
 # Knowing everything about the dataset is extremely important to ensure the proper analysis of the machine learing model using the attributes of the data.
 # 
 # - **Collected From :** [Kaggle - Lung Cancer Prediction](https://www.kaggle.com/datasets/thedevastator/cancer-patients-and-air-pollution-a-new-link)
-# - **Size :** 33.9 kB
+# - **Size :** 24.7 kB
 # - **Type :** csv file
-# - **Columns :** 24
+# - **Columns :** 17
 # - **Attributes :** 668
 # - **Attributes Details :**  
 # > 1. Age : (Numeric)
@@ -52,24 +52,17 @@ warnings.filterwarnings("ignore")
 # > 6. Occupational Hazards : (Categorical)
 # > 7. Genetic Risk : (Categorical)
 # > 8. Chronic Lung Disease : (Categorical)
-# > 9. Balanced Diet : (Categorical)
-# > 10. Obesity : (Categorical)
-# > 11. Smoking : (Categorical)
-# > 12. Passive Smoker : (Categorical)
-# > 13. Chest Pain : (Categorical)
-# > 14. Coughing Blood : (Categorical)
-# > 15. Fatigue : (Categorical)
-# > 16. Weight loss : (Categorical)
-# > 17. Shortness of Breath : (Categorical)
-# > 18. Wheezing : (Categorical)
-# > 19. Swallowing Difficulty : (Categorical)
-# > 20. Clubbing of Finger Nails : (Categorical)
-# > 21. Frequent Cold : (Categorical)
-# > 22. Dry Cough : (Categorical)
-# > 23. Snoring : (Categorical)
-# > 24. Lung Cancer : Yes , No
+# > 9. Unbalanced Diet : (Categorical)
+# > 10. Smoking : (Categorical)
+# > 11. Chest Pain : (Categorical)
+# > 12. Weight loss : (Categorical)
+# > 13. Shortness of Breath : (Categorical)
+# > 14. Wheezing : (Categorical)
+# > 15. Swallowing Difficulty : (Categorical)
+# > 16. Clubbing of Finger Nails : (Categorical)
+# > 17. Lung Cancer : Yes , No
 # 
-# - **Independent Variables :** Age, Gender, Air Pollution, Alcohol use, Dust Allergy, Occupational Hazards, Genetic Risk, Chronic Lung Disease, Balanced Diet, Obesity, Smoking, Passive Smoker, Chest Pain, Coughing Blood, Fatigue, Weight Loss, Shortness of Breath, Wheezing, Swallowing Difficulty, Clubbing of Finger Nails, Frequent Cold, Dry Cough, Snoring
+# - **Independent Variables :** Age, Gender, Air Pollution, Alcohol use, Dust Allergy, Occupational Hazards, Genetic Risk, Chronic Lung Disease, Balanced Diet, Smoking, Chest Pain, Weight Loss, Shortness of Breath, Wheezing, Swallowing Difficulty, Clubbing of Finger Nails
 # - **Dependent Variable :** Lung Cancer (Yes, No)
 
 # %%
@@ -233,6 +226,13 @@ plot('Swallowing Difficulty')
 # %%
 plot('Clubbing of Finger Nails')
 
+# %%
+plt.figure(figsize=(12,8))
+corr_matrix = df.corr()
+sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
+plt.title("Correlation Heatmap of Features")
+plt.show()
+
 # %% [markdown]
 # #4. Model Building 
 
@@ -242,6 +242,7 @@ X = df.drop('Lung cancer', axis = 1)
 y = df['Lung cancer']
 
 # %%
+# Splitting data into train/validation sets, scaling features, and adding bias term for the model
 X_bias = np.hstack((X, np.ones((X.shape[0], 1))))
 
 X_train, X_val, y_train, y_val = train_test_split(
@@ -344,7 +345,7 @@ def gradient_descent_logistic(X_train, y_train, X_val, y_val,
 # %%
 learning_rate = 0.05
 n_steps = 800
-lambda_reg = 10
+lambda_reg = 5
 
 w_opt, loss_history, val_accuracy_history, weights_history = gradient_descent_logistic(
     X_train, y_train, X_val, y_val,
@@ -357,7 +358,7 @@ w_opt, loss_history, val_accuracy_history, weights_history = gradient_descent_lo
 # #6. Model Evaluation 
 
 # %%
-def evaluate_model(w, X_val, y_val):
+def evaluate_model(w, X_val, y_val, feature_names=None):
     probabilities = sigmoid(X_val @ w)
     y_pred = (probabilities > 0.5).astype(int)
 
@@ -375,8 +376,19 @@ def evaluate_model(w, X_val, y_val):
     print(f"Precision: {precision:.3f}")
     print(f"Recall (Sensitivity): {recall:.3f}")
     print(f"F1 Score: {f1:.3f}")
-    print(f"AUC (Area Under ROC Curve): {auc:.3f}")
+    print(f"AUC (Area Under ROC Curve): {auc:.3f}\n")
 
+    # --- NEW PART: Feature importance ---
+    if feature_names is not None:
+        feature_weights = pd.DataFrame({
+            "Feature": feature_names.tolist() + ["Bias"],
+            "Weight": w
+        })
+        feature_weights = feature_weights.sort_values(by="Weight", ascending=False)
+        print("Feature Weights (sorted):")
+        print(feature_weights.to_string(index=False))
+
+    # Confusion Matrix
     plt.figure(figsize=(5,4))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
     plt.title('Confusion Matrix')
@@ -384,6 +396,7 @@ def evaluate_model(w, X_val, y_val):
     plt.ylabel('True Label')
     plt.show()
 
+    # ROC Curve
     plt.figure(figsize=(6,5))
     plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {auc:.3f})')
     plt.plot([0,1], [0,1], linestyle='--', color='gray')
@@ -395,10 +408,11 @@ def evaluate_model(w, X_val, y_val):
 
 
 # %%
-evaluate_model(w_opt, X_val, y_val)
+evaluate_model(w_opt, X_val, y_val, feature_names=X.columns)
+
 
 # %% [markdown]
-# #6. CONCLUSION
+# #7. CONCLUSION
 # 
 # As Lung Cancer is the most common cancer in the world and statistics have been proved that detection in early stages have greater chances of getting cured. Thus, we have successfully developed a machine learning model using Logistic Regression for early detection of Lung Cancer. Our model helps in early detection of Lung Cancer which will help save the lives of the patients because with early detection and diagnosis of Lung Cancer there are higher chances of survival for the patients.
 # 
